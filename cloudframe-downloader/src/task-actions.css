@@ -1,0 +1,26 @@
+/* 任务舱操作键（原 .task-actions 已随任务行重设计更名为 .pod-actions）
+   颜色取自 .pod 上定义的 --p-* 令牌，随主题切换。 */
+.pod-actions {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-left: 1px solid var(--p-spine-line);
+  background: var(--p-actions-bg);
+}
+.pod-actions button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 26px;
+  border: 1px solid var(--p-key-line);
+  border-radius: 2px;
+  background: var(--p-key-bg);
+  color: var(--p-key-text);
+  font: 10px 'DM Mono', monospace;
+  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+}
+.pod-actions button:active { transform: translateY(1px); }
+@media (hover: hover) and (pointer: fine) {
+  .pod-actions button:hover { border-color: #ffb020; color: #ffb020; }
+}

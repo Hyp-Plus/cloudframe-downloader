@@ -1,0 +1,194 @@
+/* ==========================================================================
+   任务舱 / 托盘（TaskRow）· 工业数据模块
+   信息优先级：状态阶段（工位条）→ 读数（进度 / 速度 / ETA / 队列位）→ 操作键。
+   双主题：默认深色 = 枪灰舱体；.theme-light = 拉丝铝浅色舱体（槽孔保持深色）。
+   唯一信号色：琥珀 --pod-signal，语义与节拍不随主题改变。
+   ========================================================================== */
+
+.pod {
+  --pod-signal: #ffb020;
+  --pod-signal-soft: color-mix(in srgb, var(--pod-signal) 20%, transparent);
+  --p-bg0: #262b31;         /* 舱体渐变顶 */
+  --p-bg1: #1b1f24;         /* 舱体渐变底 */
+  --p-line: #454e57;        /* 舱体轮廓 */
+  --p-line-strong: #59636d; /* 运行中轮廓 */
+  --p-text: #c9d1d8;
+  --p-head: #e8edf1;
+  --p-spine: #14171a;       /* 左舷 */
+  --p-spine-line: #363d44;
+  --p-plate-bg: #1d2126;
+  --p-plate-line: #3a4148;
+  --p-plate-text: #8d969f;
+  --p-lamp-off: #4a525a;
+  --p-meta: #6d767f;
+  --p-state-dim: #8d969f;
+  --p-stage-bg: #20252a;
+  --p-stage-line: #333a41;
+  --p-stage-text: #79828b;
+  --p-stage-done-bg: #39414a;
+  --p-stage-done-line: #4a525a;
+  --p-stage-done-text: #aeb6be;
+  --p-fault-stripe: #20252a;
+  --p-readout: #8d969f;
+  --p-detail: #6d767f;
+  --p-url: #68717a;
+  --p-track-a: #171b1f;     /* 铣槽进度轨 */
+  --p-track-b: #20252a;
+  --p-track-line: #333a41;
+  --p-actions-bg: #171b1f;
+  --p-key-bg: #22272c;
+  --p-key-line: #454e57;
+  --p-key-text: #aab2ba;
+
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: stretch;
+  border: 1px solid var(--p-line);
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--p-bg0), var(--p-bg1));
+  color: var(--p-text);
+  overflow: hidden;
+  transition: border-color 240ms cubic-bezier(.3, .9, .25, 1), opacity 240ms ease, background-color 240ms ease;
+}
+
+/* 浅色主题：拉丝铝舱体 */
+.theme-light .pod {
+  --p-bg0: #f4f3f0;
+  --p-bg1: #e6e4e0;
+  --p-line: #b9bcbf;
+  --p-line-strong: #a0a5aa;
+  --p-text: #3c4147;
+  --p-head: #23272b;
+  --p-spine: #e8e6e2;
+  --p-spine-line: #c9cccf;
+  --p-plate-bg: #f5f4f1;
+  --p-plate-line: #b9bcbf;
+  --p-plate-text: #5b6167;
+  --p-lamp-off: #b9bcbf;
+  --p-meta: #7a7f85;
+  --p-state-dim: #7a7f85;
+  --p-stage-bg: #eceae6;
+  --p-stage-line: #c9cccf;
+  --p-stage-text: #6e747a;
+  --p-stage-done-bg: #dcdad5;
+  --p-stage-done-line: #b0b4b8;
+  --p-stage-done-text: #4a4f55;
+  --p-fault-stripe: #eceae6;
+  --p-readout: #5b6167;
+  --p-detail: #8a9095;
+  --p-url: #8a9095;
+  --p-track-a: #d4d2cd;
+  --p-track-b: #e2e0db;
+  --p-track-line: #b9bcbf;
+  --p-actions-bg: #e8e6e2;
+  --p-key-bg: #f5f4f1;
+  --p-key-line: #b9bcbf;
+  --p-key-text: #4a4f55;
+}
+
+/* 左舷：状态灯 + 平台铭牌 */
+.pod-spine {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 9px;
+  padding: 11px 0;
+  background: var(--p-spine);
+  border-right: 1px solid var(--p-spine-line);
+}
+.pod-lamp { width: 8px; height: 8px; border-radius: 1px; background: var(--p-lamp-off); transition: background-color 240ms ease; }
+.pod-plate {
+  min-width: 24px;
+  padding: 3px 4px;
+  border: 1px solid var(--p-plate-line);
+  border-radius: 2px;
+  background: var(--p-plate-bg);
+  color: var(--p-plate-text);
+  font: 700 10px 'DM Mono', monospace;
+  text-align: center;
+}
+
+.pod-body { min-width: 0; display: grid; gap: 6px; padding: 10px 12px 11px; }
+
+/* 第一行：平台 · 时间/队列位 · 状态码 */
+.pod-head { display: flex; align-items: baseline; gap: 9px; }
+.pod-head > b { color: var(--p-head); font-size: 12px; font-weight: 600; letter-spacing: .3px; }
+.pod-meta { color: var(--p-meta); font: 9px 'DM Mono', monospace; letter-spacing: .6px; }
+.pod-state { margin-left: auto; color: var(--pod-signal); font: 600 10px 'DM Mono', monospace; letter-spacing: 2px; }
+.pod-queued .pod-state, .pod-cancelled .pod-state { color: var(--p-state-dim); }
+
+/* 工位条：解析 → 下载 → 转码 → 入库 */
+.pod-stages { display: flex; gap: 3px; }
+.pod-stages span {
+  flex: 1;
+  max-width: 92px;
+  padding: 3px 0;
+  border: 1px solid var(--p-stage-line);
+  border-radius: 1px;
+  background: var(--p-stage-bg);
+  color: var(--p-stage-text);
+  font-size: 9px;
+  text-align: center;
+  letter-spacing: 1px;
+  transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease;
+}
+.pod-stages span.done { background: var(--p-stage-done-bg); border-color: var(--p-stage-done-line); color: var(--p-stage-done-text); }
+.pod-stages span.current { background: var(--pod-signal-soft); border-color: var(--pod-signal); color: var(--pod-signal); }
+.pod-stages span.fault {
+  border-color: var(--pod-signal);
+  color: var(--pod-signal);
+  background: repeating-linear-gradient(135deg, var(--pod-signal-soft) 0 4px, var(--p-fault-stripe) 4px 8px);
+  animation: fault-stripes 1s linear infinite;
+}
+
+/* 读数行：百分比 / 速度 / ETA / 详情（等宽字体，仪表风格） */
+.pod-readout { display: flex; align-items: baseline; gap: 12px; min-width: 0; font: 10px 'DM Mono', monospace; color: var(--p-readout); }
+.pod-pct { color: var(--pod-signal); font-size: 14px; font-weight: 500; }
+.pod-detail { margin-left: auto; max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--p-detail); }
+
+.pod-url { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--p-url); font: 9px 'DM Mono', monospace; }
+
+/* 铣槽进度轨 */
+.pod-progress {
+  height: 6px;
+  border: 1px solid var(--p-track-line);
+  border-radius: 1px;
+  background: repeating-linear-gradient(90deg, var(--p-track-a) 0 4px, var(--p-track-b) 4px 8px);
+  overflow: hidden;
+}
+.pod-progress i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(180deg, #ffc45c, #f59e0b);
+  transition: width 360ms cubic-bezier(.3, .9, .25, 1);
+}
+.pod-paused .pod-progress i { opacity: .45; }
+
+/* 工况：同一信号色的不同节拍 */
+.pod-downloading .pod-lamp { background: var(--pod-signal); animation: pod-lamp-run 2.4s ease-in-out infinite; }
+.pod-downloading { border-color: var(--p-line-strong); }
+.pod-queued .pod-lamp { background: var(--pod-signal); animation: pod-lamp-slow 1.8s steps(1) infinite; }
+.pod-queued { border-style: dashed; }
+.pod-paused { opacity: .85; }
+.pod-paused .pod-lamp { background: var(--pod-signal); opacity: .55; }
+.pod-completed .pod-lamp { background: var(--pod-signal); opacity: .8; }
+.pod-failed { border-color: color-mix(in srgb, var(--pod-signal) 55%, var(--p-line)); }
+.pod-failed .pod-lamp { background: var(--pod-signal); animation: pod-lamp-alarm 1s steps(1) infinite; }
+.pod-cancelled { opacity: .55; }
+
+@keyframes pod-lamp-run { 50% { opacity: .55; } }
+@keyframes pod-lamp-slow { 0%, 55% { opacity: 1; } 60%, 100% { opacity: .2; } }
+@keyframes pod-lamp-alarm { 0%, 12% { opacity: 1; } 14%, 26% { opacity: .15; } 28%, 40% { opacity: 1; } 42%, 100% { opacity: .15; } }
+@keyframes fault-stripes { to { background-position: 11.3px 0; } }
+
+/* 窄宽度：读数换行、详情退到整行 */
+@media (max-width: 1100px) {
+  .pod { grid-template-columns: 38px minmax(0, 1fr) auto; }
+  .pod-detail { max-width: none; width: 100%; margin-left: 0; }
+  .pod-readout { flex-wrap: wrap; gap: 4px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pod-lamp, .pod-stages span.fault { animation: none !important; }
+  .pod-progress i { transition: none; }
+}
