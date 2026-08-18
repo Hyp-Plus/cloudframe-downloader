@@ -16,6 +16,7 @@ const downloadApi = {
   pause: (id: string) => ipcRenderer.invoke("download:pause", id),
   resume: (id: string) => ipcRenderer.invoke("download:resume", id),
   cancel: (id: string) => ipcRenderer.invoke("download:cancel", id),
+  retry: (id: string) => ipcRenderer.invoke("download:retry", id),
   onTaskUpdate: (callback: (item: unknown) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, item: unknown) => callback(item);
     ipcRenderer.on("download:progress", listener);

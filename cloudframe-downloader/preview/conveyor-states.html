@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>Conveyor States Preview</title>
+<title>Conveyor States Preview v3</title>
 <link rel="stylesheet" href="../src/styles.css" />
 <link rel="stylesheet" href="../src/task-actions.css" />
 <link rel="stylesheet" href="../src/conveyor-motion.css" />
@@ -36,7 +36,6 @@ const state = params.get("state") || "idle";
 const theme = params.get("theme") === "light" ? "theme-light" : "theme-dark";
 document.querySelector(".wrap").classList.add(theme);
 
-/* 与 src/App.tsx 相同的位置模型 */
 const LINE = { staging: 64, st1: 229, st2: 376, st2Span: 254, st3: 778, exit: 1142, gap: 144, podW: 120, podY: 90 };
 const sensorXs = [370, 760, 920, 1080];
 function targetX(t, qi) {
@@ -51,53 +50,61 @@ const defs = `<defs>
   <linearGradient id="cf-steel" x1="0" y1="0" x2="0" y2="1"><stop class="gs-a" offset="0" /><stop class="gs-b" offset="1" /></linearGradient>
   <linearGradient id="cf-belt" x1="0" y1="0" x2="0" y2="1"><stop class="gb-a" offset="0" /><stop class="gb-b" offset="1" /></linearGradient>
   <radialGradient id="cf-roller" cx=".38" cy=".34" r=".9"><stop class="gr-a" offset="0" /><stop class="gr-b" offset="1" /></radialGradient>
+  <linearGradient id="cf-gearbox" x1="0" y1="0" x2="0" y2="1"><stop class="gg-a" offset="0" /><stop class="gg-b" offset="1" /></linearGradient>
   <pattern id="cf-hazard" width="10" height="10" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect class="hz-a" width="10" height="10" /><rect class="hz-b" width="5" height="10" /></pattern>
   <pattern id="cf-hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect class="ht-a" width="7" height="7" /><rect class="ht-b" width="3" height="7" /></pattern>
+  <pattern id="cf-perf" width="8" height="8" patternUnits="userSpaceOnUse"><circle class="pf-dot" cx="2" cy="2" r="1" /><circle class="pf-dot" cx="6" cy="6" r="1" /></pattern>
 </defs>`;
 
 const frame = `
   <g class="m-frame">
-    <rect class="m-leg" x="200" y="244" width="18" height="54" />
-    <rect class="m-leg" x="1036" y="244" width="18" height="54" />
+    <rect class="m-leg" x="200" y="244" width="18" height="50" />
+    <rect class="m-leg" x="1036" y="244" width="18" height="50" />
     <path class="m-brace" d="M218 250l818 42M218 292l818-42" />
-    <rect class="m-foot" x="188" y="298" width="42" height="8" />
-    <rect class="m-foot" x="1024" y="298" width="42" height="8" />
+    <g class="m-foot"><rect x="184" y="294" width="50" height="10" rx="1" /></g>
+    <g class="m-foot"><rect x="1020" y="294" width="50" height="10" rx="1" /></g>
     <rect class="m-girder" x="196" y="214" width="876" height="30" />
     <rect class="m-flange" x="186" y="208" width="896" height="6" />
-    <path class="m-ruler" d="${Array.from({ length: 40 }, (_, i) => 198 + i * 22).map((x, i) => `M${x} 211v${i % 5 === 0 ? 5 : 3}`).join("")}" />
-    <path class="m-weld" d="M420 218v22M640 218v22M860 218v22" />
-    ${[310, 400, 490, 680, 770, 860, 950, 1020].map(x => `<g class="m-bolt"><circle cx="${x}" cy="229" r="2.6" /><circle cx="${x}" cy="229" r="1" /></g>`).join("")}
+    ${[310,560,820,1020].map(x => `<g class="m-bolt"><circle cx="${x}" cy="229" r="2.4" /><circle cx="${x}" cy="229" r=".9" /></g>`).join("")}
     <g class="m-tension">
       <text class="m-gauge-label" x="257" y="206" text-anchor="middle">TENSION</text>
       <rect class="m-plate" x="228" y="220" width="58" height="16" rx="1" />
-      <path class="m-ticks" d="M236 224v4M242 224v4M248 224v4M254 224v6M260 224v4M266 224v4M272 224v4M278 224v6" />
+      <path class="m-ticks" d="M236 224v4M254 224v6M272 224v4M278 224v6" />
       <g class="m-tension-pointer"><path d="M230 233l6-4v8z" /></g>
     </g>
-    <g class="m-asset"><rect x="540" y="220" width="120" height="18" rx="1" /><text x="600" y="232" text-anchor="middle">CF-01 · FLOW LINE</text></g>
+    <g class="m-asset">
+      <rect x="462" y="218" width="156" height="22" rx="1" />
+      <text class="m-asset-model" x="470" y="227">CF-01 · FLOW LINE</text>
+      <text class="m-asset-sn" x="470" y="237">SN:2026-0817 · 24VDC</text>
+    </g>
+    <text class="m-warn-text" x="927" y="231" text-anchor="middle">⚠ CAUTION</text>
     ${[["ST-01 解析", 198, 150], ["ST-02 下载", 400, 330], ["ST-03 转码", 780, 120], ["ST-04 入库", 940, 120]].map(([s, x, w], i) => `<g class="m-station station-${i}"><rect x="${x}" y="246" width="${w}" height="24" rx="1" /><text x="${x + w / 2}" y="262" text-anchor="middle">${s}</text></g>`).join("")}
   </g>`;
 
 const console_ = `
   <g class="m-console">
-    <rect class="m-leg" x="36" y="240" width="14" height="58" />
-    <rect class="m-foot" x="24" y="298" width="38" height="8" />
-    <rect class="m-housing" x="16" y="150" width="56" height="92" rx="2" />
-    <rect class="m-screen" x="24" y="160" width="40" height="24" rx="1" />
-    <path class="m-screen-line" d="M28 168h24M28 175h32" />
-    <circle class="m-led" cx="28" cy="196" r="2.5" />
-    <circle class="m-led m-led-run" cx="40" cy="196" r="2.5" />
-    <circle class="m-led" cx="52" cy="196" r="2.5" />
-    <circle class="m-key" cx="27" cy="214" r="4" />
-    <circle class="m-key" cx="39" cy="214" r="4" />
-    <circle class="m-key m-key-signal" cx="51" cy="214" r="4" />
-    <path class="m-vents" d="M24 226h32M24 231h32M24 236h32" />
-    <rect class="m-mast" x="40" y="66" width="4" height="84" />
-    <rect class="m-beacon-housing" x="32" y="40" width="20" height="26" rx="3" />
-    <circle class="m-beacon" cx="42" cy="52" r="6.5" />
+    <rect class="m-leg" x="36" y="240" width="14" height="54" />
+    <rect class="m-foot" x="22" y="294" width="42" height="10" rx="1" />
+    <rect class="m-housing" x="14" y="148" width="60" height="96" rx="2" />
+    <rect class="m-screen" x="22" y="156" width="44" height="22" rx="1" />
+    <path class="m-screen-line" d="M26 164h28M26 171h36" />
+    <circle class="m-led" cx="26" cy="190" r="2.2" />
+    <circle class="m-led m-led-run" cx="38" cy="190" r="2.2" />
+    <circle class="m-led" cx="50" cy="190" r="2.2" />
+    <circle class="m-key" cx="26" cy="206" r="3.5" />
+    <circle class="m-key m-key-signal" cx="38" cy="206" r="3.5" />
+    <circle class="m-key" cx="50" cy="206" r="3.5" />
+    <circle class="m-estop-base" cx="32" cy="222" r="5" />
+    <circle class="m-estop-cap" cx="32" cy="221" r="3.5" />
+    <circle class="m-selector-knob" cx="50" cy="222" r="3" />
+    <path class="m-vents" d="M22 234h44M22 239h44" />
+    <rect class="m-mast" x="40" y="64" width="4" height="84" />
+    <rect class="m-beacon-housing" x="32" y="38" width="20" height="26" rx="3" />
+    <circle class="m-beacon" cx="42" cy="51" r="6.5" />
   </g>
   <g class="m-apron">
     <rect class="m-apron-bed" x="76" y="146" width="100" height="8" />
-    ${[88, 110, 132, 154].map(x => `<g class="m-idler"><circle cx="${x}" cy="146" r="6" /><path d="M${x} 142v8M${x - 4} 146h8" /></g>`).join("")}
+    ${[100,132,154].map(x => `<g class="m-idler m-idler-apron"><circle cx="${x}" cy="146" r="5" /></g>`).join("")}
     <rect class="m-hazard" x="76" y="146" width="6" height="8" />
   </g>
   <g class="m-endstop">
@@ -108,56 +115,62 @@ const console_ = `
 const output = `
   <g class="m-output">
     <path class="m-chute" d="M1080 146l30 56-12 4-26-50z" />
-    <rect class="m-leg" x="1130" y="280" width="14" height="18" />
-    <rect class="m-foot" x="1118" y="298" width="42" height="8" />
-    <rect class="m-hazard" x="1104" y="202" width="64" height="6" />
-    <rect class="m-bin" x="1104" y="208" width="64" height="72" rx="2" />
-    <path class="m-bin-slots" d="M1114 226h44M1114 240h44M1114 254h44" />
-    <rect class="m-bin-lamp" x="1129" y="196" width="14" height="6" rx="1" />
-    <text class="m-bin-label" x="1136" y="273" text-anchor="middle">OUT</text>
+    <rect class="m-leg" x="1130" y="278" width="14" height="16" />
+    <rect class="m-foot" x="1116" y="294" width="42" height="10" rx="1" />
+    <rect class="m-hazard" x="1104" y="200" width="64" height="6" />
+    <rect class="m-bin" x="1104" y="206" width="64" height="72" rx="2" />
+    <path class="m-bin-slots" d="M1114 226h44M1114 244h44M1114 262h30" />
+    <rect class="m-bin-lamp" x="1128" y="194" width="16" height="6" rx="1" />
+    <text class="m-bin-label" x="1136" y="272" text-anchor="middle">OUT</text>
   </g>`;
 
 function podMarkup(p, idx, total) {
   const t = p.task;
   const showPct = t.pct > 0;
-  return `<g class="pod-pos" style="translate: ${p.x}px ${LINE.podY}px"><g class="pod-g pod-${t.cls}">
-    <rect class="pod-shadow" x="4" y="50" width="112" height="5" />
-    <rect class="pod-skirt" x="0" y="42" width="120" height="8" />
+  const unitNo = String(total - idx).padStart(2, "0");
+  return `<g class="pod-g pod-${t.cls}" style="transform: translate(${p.x}px, ${LINE.podY}px);">
+    <ellipse class="pod-shadow" cx="60" cy="55" rx="52" ry="3.5" />
+    <g class="pod-wheels">
+      <line class="pod-axle" x1="18" y1="50" x2="38" y2="50" />
+      <circle class="pod-wheel" cx="18" cy="50" r="3.5" /><circle class="pod-wheel-hub" cx="18" cy="50" r="1.2" />
+      <circle class="pod-wheel" cx="38" cy="50" r="3.5" /><circle class="pod-wheel-hub" cx="38" cy="50" r="1.2" />
+      <line class="pod-axle" x1="82" y1="50" x2="102" y2="50" />
+      <circle class="pod-wheel" cx="82" cy="50" r="3.5" /><circle class="pod-wheel-hub" cx="82" cy="50" r="1.2" />
+      <circle class="pod-wheel" cx="102" cy="50" r="3.5" /><circle class="pod-wheel-hub" cx="102" cy="50" r="1.2" />
+    </g>
+    <rect class="pod-skirt" x="2" y="42" width="116" height="7" rx="1" />
     <rect class="pod-chassis" x="0" y="6" width="120" height="38" rx="2" />
     <rect class="pod-deck" x="0" y="6" width="120" height="7" />
-    <rect class="pod-clasp" x="28" y="3" width="9" height="4" rx="1" />
-    <rect class="pod-clasp" x="83" y="3" width="9" height="4" rx="1" />
-    <rect class="pod-bumper" x="0" y="16" width="3" height="20" />
-    <rect class="pod-bumper" x="117" y="16" width="3" height="20" />
-    ${[[7, 12], [113, 12], [7, 38], [113, 38]].map(([cx, cy]) => `<g class="pod-bolt"><circle cx="${cx}" cy="${cy}" r="2" /><circle cx="${cx}" cy="${cy}" r=".8" /></g>`).join("")}
-    <rect class="pod-plate" x="9" y="15" width="28" height="21" rx="1" />
-    <text class="pod-code" x="23" y="29" text-anchor="middle">${t.code}</text>
-    <text class="pod-idx" x="44" y="22">UNIT-0${total - idx}</text>
-    ${showPct ? `<text class="pod-pct" x="99" y="22" text-anchor="end">${t.pct}%</text>` : ""}
-    <rect class="pod-slot" x="44" y="27" width="66" height="9" rx="1" />
-    ${showPct ? `<rect class="pod-fill" x="45.5" y="28.5" width="${Math.max(1.5, 63 * t.pct / 100).toFixed(1)}" height="6" />` : ""}
-    <rect class="pod-lamp" x="104" y="15" width="7" height="7" rx="1" />
+    <rect class="pod-clasp" x="26" y="3" width="10" height="4" rx="1" />
+    <rect class="pod-clasp" x="84" y="3" width="10" height="4" rx="1" />
+    <rect class="pod-bumper" x="0" y="16" width="3" height="22" />
+    <rect class="pod-bumper" x="117" y="16" width="3" height="22" />
+    ${[[7,13],[113,13],[7,39],[113,39]].map(([cx,cy]) => `<g class="pod-bolt"><circle cx="${cx}" cy="${cy}" r="2" /><circle cx="${cx}" cy="${cy}" r=".8" /></g>`).join("")}
+    <rect class="pod-plate" x="8" y="14" width="26" height="22" rx="1" />
+    <text class="pod-code" x="21" y="29" text-anchor="middle">${t.code}</text>
+    <text class="pod-idx" x="40" y="21">UNIT-${unitNo}</text>
+    <rect class="pod-display" x="40" y="25" width="44" height="12" rx="1" />
+    ${showPct ? `<text class="pod-display-text" x="62" y="34" text-anchor="middle">${t.pct}%</text>` : `<text class="pod-display-text pod-display-idle" x="62" y="34" text-anchor="middle">----</text>`}
+    <rect class="pod-slot" x="88" y="25" width="24" height="12" rx="1" />
+    ${showPct ? `<rect class="pod-fill" x="89.5" y="26.5" width="${Math.max(1.5, 21 * t.pct / 100).toFixed(1)}" height="9" />` : ""}
+    <rect class="pod-beacon-post" x="58" y="0" width="4" height="6" />
+    <rect class="pod-lamp" x="55" y="-5" width="10" height="7" rx="2" />
     ${t.cls === "failed" ? `<rect class="pod-tape" x="0" y="34" width="120" height="6" />` : ""}
-  </g></g>`;
+  </g>`;
 }
 
-function conveyor(cls, stageIdx, title, copy, taskDefs) {
+function conveyor(cls, stageIdx, title, copy, taskDefs, beltRunning) {
   let guard = Infinity;
   const pods = taskDefs
     .map((task, i) => ({ task, ideal: targetX(task, task.cls === "queued" ? taskDefs.slice(0, i).filter(d => d.cls === "queued").length : 0) }))
     .sort((a, b) => b.ideal - a.ideal)
     .map(p => { const x = Math.min(p.ideal, guard - LINE.gap); guard = x; return { task: p.task, x }; })
-    .filter(p => p.x > -LINE.podW);
-  const sensors = sensorXs.map(sx => {
-    const on = pods.some(p => p.task.cls !== "queued" && p.x < sx + 8 && p.x + LINE.podW > sx - 8);
-    return `<g class="m-sensor${on ? " on" : ""}">
-      <rect class="m-sensor-post" x="${sx - 2}" y="110" width="4" height="98" />
-      <rect class="m-sensor-head" x="${sx - 6}" y="96" width="12" height="14" rx="2" />
-      <circle class="m-sensor-led" cx="${sx}" cy="102" r="2.6" />
-      <path class="m-sensor-beam" d="M${sx} 110v30" />
-    </g>`;
-  }).join("");
-  return `<section class="conveyor ${cls} stage-${stageIdx}" role="status" aria-label="${copy}">
+    .filter(p => p.x + LINE.podW > -20);
+  const sensors = sensorXs.map(sx => pods.some(p => p.task.cls !== "queued" && p.x < sx + 12 && p.x + LINE.podW > sx - 12));
+  const beltStyle = beltRunning
+    ? `--belt-state:running;--belt-dur:1.15s;--roller-dur:2.2s;--idler-dur:0.76s;`
+    : `--belt-state:paused;`;
+  return `<section class="conveyor ${cls} stage-${stageIdx}" role="status" aria-label="${copy}" style="${beltStyle}">
     <div class="conveyor-head">
       <p class="core-label">FLOW LINE · CF-01</p>
       <h3>${title}</h3>
@@ -171,24 +184,26 @@ function conveyor(cls, stageIdx, title, copy, taskDefs) {
       <g class="m-line">
         <rect class="m-belt-return" x="204" y="198" width="848" height="8" />
         <path class="m-tread-return" d="M204 202h848" />
-        ${[320, 440, 560, 680, 800, 920].map(x => `<g class="m-idler"><circle cx="${x}" cy="163" r="11" /><path d="M${x} 156v14M${x - 7} 163h14" /></g>`).join("")}
-        <g class="m-roller m-roller-tail"><circle cx="210" cy="172" r="32" /><path d="M210 148v48M186 172h48M193 155l34 34M227 155l-34 34" /><circle class="m-hub" cx="210" cy="172" r="6" /></g>
-        <g class="m-roller m-roller-drive"><circle cx="1046" cy="172" r="32" /><path d="M1046 148v48M1022 172h48M1029 155l34 34M1063 155l-34 34" /><circle class="m-hub" cx="1046" cy="172" r="6" /></g>
-        <g class="m-motor"><rect x="1026" y="206" width="40" height="26" rx="2" /><path d="M1032 212v14M1039 212v14M1046 212v14" /></g>
+        ${[320,440,560,680,800,920].map(x => `<g class="m-idler"><circle cx="${x}" cy="163" r="10" /><circle class="m-idler-axle" cx="${x}" cy="163" r="2" /></g>`).join("")}
+        <g class="m-roller m-roller-tail"><circle cx="210" cy="172" r="32" /><path d="M210 148v48M186 172h48" /><circle class="m-hub" cx="210" cy="172" r="6" /></g>
+        <g class="m-roller m-roller-drive"><circle cx="1046" cy="172" r="32" /><path d="M1046 148v48M1022 172h48" /><circle class="m-hub" cx="1046" cy="172" r="6" /><rect class="m-coupling" x="1074" y="167" width="10" height="10" rx="1" /></g>
+        <g class="m-gearbox"><rect class="m-gearbox-housing" x="1084" y="158" width="36" height="40" rx="2" /><path class="m-gearbox-fin" d="M1088 164h28M1088 172h28M1088 180h28" /><circle class="m-sight-glass" cx="1100" cy="190" r="3" /></g>
+        <g class="m-motor"><rect x="1026" y="206" width="40" height="24" rx="2" /><path d="M1034 212v12M1044 212v12" /></g>
         <rect class="m-belt-top" x="176" y="140" width="904" height="12" />
         <path class="m-belt-edge" d="M176 140.5h904" />
         <path class="m-tread-top" d="M176 146h904" />
-        ${sensors}
-        <g class="m-rail-rear"><rect x="182" y="116" width="892" height="4" /><rect class="m-rail-slot" x="182" y="116" width="892" height="1.5" />${[250, 480, 710, 940].map(x => `<rect x="${x}" y="120" width="5" height="88" />`).join("")}</g>
-        ${pods.map(podMarkup).join("")}
-        <g class="m-rail-near"><rect x="182" y="128" width="892" height="4" /><rect class="m-rail-slot" x="182" y="128" width="892" height="1.5" />${[250, 480, 710, 940].map(x => `<rect x="${x}" y="132" width="5" height="76" />`).join("")}</g>
+        ${sensorXs.map((sx, i) => `<g class="m-sensor${sensors[i] ? " on" : ""}"><rect class="m-sensor-post" x="${sx-2}" y="110" width="4" height="100" /><rect class="m-sensor-head" x="${sx-6}" y="96" width="12" height="14" rx="2" /><circle class="m-sensor-led" cx="${sx}" cy="103" r="2.2" /><path class="m-sensor-beam" d="M${sx} 110v32" /></g>`).join("")}
+        <rect class="m-cable-tray" x="200" y="104" width="860" height="4" rx="1" />
+        <g class="m-rail-rear"><rect x="182" y="116" width="892" height="4" /><rect class="m-rail-slot" x="182" y="116" width="892" height="1.5" />${[250,480,710,940].map(x => `<rect x="${x}" y="120" width="5" height="88" />`).join("")}</g>
+        ${pods.map((p, i) => podMarkup(p, i, pods.length)).join("")}
+        <g class="m-rail-near"><rect x="182" y="128" width="892" height="4" /><rect class="m-rail-slot" x="182" y="128" width="892" height="1.5" />${[250,480,710,940].map(x => `<rect x="${x}" y="132" width="5" height="76" />`).join("")}</g>
       </g>
       ${output}
     </svg>
   </section>`;
 }
 
-function row(cls, plate, name, meta, stateText, stages, readout, url, progress, actions) {
+function row(cls, plate, name, meta, stateText, stages, readout, url, progress, actions, sslHint) {
   return `<article class="pod pod-${cls}">
     <div class="pod-spine"><i class="pod-lamp"></i><span class="pod-plate">${plate}</span></div>
     <div class="pod-body">
@@ -197,6 +212,7 @@ function row(cls, plate, name, meta, stateText, stages, readout, url, progress, 
       <div class="pod-readout">${readout}</div>
       <p class="pod-url">${url}</p>
       ${progress != null ? `<div class="pod-progress"><i style="width:${progress}%"></i></div>` : ""}
+      ${sslHint ? `<p class="pod-ssl-hint">连接媒体服务器时证书校验失败；请检查 Clash / 代理节点后重试。</p>` : ""}
     </div>
     ${actions ? `<div class="pod-actions">${actions}</div>` : ""}
   </article>`;
@@ -210,50 +226,50 @@ const NONE = `<span>解析</span><span>下载</span><span>转码</span><span>入
 let html = "";
 let label = "";
 if (state === "idle") {
-  label = "STATE: IDLE · 空闲";
-  html = conveyor("conveyor-idle", -1, "输送线待命", "LINE READY · 传送带待命", []);
+  label = "STATE: IDLE · 空闲（全线静止，张力指针落底）";
+  html = conveyor("conveyor-idle", -1, "输送线待命", "LINE READY · 传送带待命", [], false);
 } else if (state === "queued") {
-  label = "STATE: QUEUED · 排队（上料区两件待进给）";
+  label = "STATE: QUEUED · 排队（上料区两件待进给，皮带静止）";
   html = conveyor("conveyor-queued", 0, "媒体输送线运行中", "FEED · 正在准备 2 个任务", [
     { cls: "queued", code: "B", pct: 0, stage: -1 },
     { cls: "queued", code: "IG", pct: 0, stage: -1 },
-  ]) + `<div class="task-list">`
+  ], false) + `<div class="task-list">`
     + row("queued", "B", "哔哩哔哩", "20:03 · Q01", "排队", NONE, `<span class="pod-detail">等待进入传送带</span>`, "https://www.bilibili.com/video/BV1xx411c7mD", null, `<button title="取消">✕</button>`)
     + row("queued", "IG", "Instagram", "20:03 · Q02", "排队", NONE, `<span class="pod-detail">等待进入传送带</span>`, "https://www.instagram.com/reel/Cx4mple/", null, `<button title="取消">✕</button>`)
     + `</div>`;
 } else if (state === "downloading") {
-  label = "STATE: DOWNLOADING · 下载中（解析 / 0% 进线 / 66% 三件同时在线）";
+  label = "STATE: DOWNLOADING · 下载中（解析/35%/72% 三件同时在线，皮带走带）";
   html = conveyor("conveyor-downloading", 1, "媒体输送线运行中", "RUN · 正在传送 3 个任务", [
-    { cls: "downloading", code: "YT", pct: 66, stage: 1 },
-    { cls: "downloading", code: "B", pct: 0, stage: 1 },
+    { cls: "downloading", code: "YT", pct: 72, stage: 1 },
+    { cls: "downloading", code: "B", pct: 35, stage: 1 },
     { cls: "downloading", code: "IG", pct: 0, stage: 0 },
     { cls: "queued", code: "XH", pct: 0, stage: -1 },
-  ]) + `<div class="task-list">`
-    + row("downloading", "YT", "YouTube", "20:01", "66%", ST(1), `<b class="pod-pct">66%</b><span>3.4MiB/s</span><span>ETA 00:21</span><span class="pod-detail">数据流传输中</span>`, "https://www.youtube.com/watch?v=aqz-KE-bpKQ", 66, `<button title="暂停">❚❚</button><button title="取消">✕</button>`)
-    + row("downloading", "B", "哔哩哔哩", "20:02", "0%", ST(1), `<b class="pod-pct">0%</b><span class="pod-detail">正在接收媒体数据</span>`, "https://www.bilibili.com/video/BV1xx411c7mD", 0, `<button title="暂停">❚❚</button><button title="取消">✕</button>`)
+  ], true) + `<div class="task-list">`
+    + row("downloading", "YT", "YouTube", "20:01", "72%", ST(1), `<b class="pod-pct">72%</b><span>3.4MiB/s</span><span>ETA 00:12</span><span class="pod-detail">数据流传输中</span>`, "https://www.youtube.com/watch?v=aqz-KE-bpKQ", 72, `<button title="暂停">❚❚</button><button title="取消">✕</button>`)
+    + row("downloading", "B", "哔哩哔哩", "20:02", "35%", ST(1), `<b class="pod-pct">35%</b><span>1.8MiB/s</span><span>ETA 00:45</span><span class="pod-detail">正在接收媒体数据</span>`, "https://www.bilibili.com/video/BV1xx411c7mD", 35, `<button title="暂停">❚❚</button><button title="取消">✕</button>`)
     + row("downloading", "IG", "Instagram", "20:02", "0%", ST(0), `<span class="pod-detail">正在连接下载引擎…</span>`, "https://www.instagram.com/reel/Cx4mple/", null, `<button title="暂停">❚❚</button><button title="取消">✕</button>`)
     + `</div>`;
 } else if (state === "paused") {
-  label = "STATE: PAUSED · 暂停（全线冻结，HOLD 半亮）";
+  label = "STATE: PAUSED · 暂停（舱体冻结于 ST-02 47%，全线 HOLD，皮带停住）";
   html = conveyor("conveyor-attention", 1, "媒体输送线运行中", "HOLD · 有任务需要处理", [
     { cls: "paused", code: "YT", pct: 47, stage: 1 },
     { cls: "queued", code: "B", pct: 0, stage: -1 },
-  ]) + `<div class="task-list">`
+  ], false) + `<div class="task-list">`
     + row("paused", "YT", "YouTube", "20:01", "已暂停", ST(1), `<span class="pod-detail">下载已暂停</span>`, "https://www.youtube.com/watch?v=aqz-KE-bpKQ", 47, `<button title="继续">▶</button><button title="取消">✕</button>`)
     + row("queued", "B", "哔哩哔哩", "20:02 · Q01", "排队", NONE, `<span class="pod-detail">等待进入传送带</span>`, "https://www.bilibili.com/video/BV1xx411c7mD", null, `<button title="取消">✕</button>`)
     + `</div>`;
 } else if (state === "failed") {
-  label = "STATE: FAILED · 故障（舱体冻结于 ST-03，警示胶带 + 双闪）";
-  html = conveyor("conveyor-attention", 2, "媒体输送线运行中", "HOLD · 有任务需要处理", [
-    { cls: "failed", code: "X", pct: 88, stage: 2 },
-  ]) + `<div class="task-list">`
-    + row("failed", "X", "X / Twitter", "19:58", "故障", ST(2, true), `<span class="pod-detail">该公开链接需要登录状态。请登录后重试。</span>`, "https://x.com/example/status/1234567890", 88, "")
+  label = "STATE: FAILED · 故障（SSL 证书校验失败，重试按钮可见）";
+  html = conveyor("conveyor-attention", 1, "媒体输送线运行中", "HOLD · 有任务需要处理", [
+    { cls: "failed", code: "B", pct: 45, stage: 1 },
+  ], false) + `<div class="task-list">`
+    + row("failed", "B", "哔哩哔哩", "19:58", "故障", ST(1, true), `<span class="pod-detail">ERROR: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed</span>`, "https://www.bilibili.com/video/BV1xx411c7mD", 45, `<button class="pod-retry" title="重试下载" aria-label="重试下载">↻</button>`, true)
     + `</div>`;
 } else {
-  label = "STATE: COMPLETE · 完成（出料入箱，最近一件正在消失）";
+  label = "STATE: COMPLETE · 完成（出料入箱，收纳箱灯亮）";
   html = conveyor("conveyor-complete", 3, "文件已经入库", "CYCLE COMPLETE · 文件已收纳到本地", [
     { cls: "completed", code: "B", pct: 100, stage: 3 },
-  ]) + `<div class="task-list">`
+  ], false) + `<div class="task-list">`
     + row("completed", "B", "哔哩哔哩", "19:47", "已入库", DONE, `<span class="pod-detail">音视频已合并为单个 MP4 文件</span>`, "https://www.bilibili.com/video/BV1ab411c7xy", null, `<button title="打开所在文件夹">⤴</button>`)
     + `</div>`;
 }

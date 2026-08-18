@@ -93,6 +93,75 @@ function updateTask(id: string, update: Partial<DownloadTask>) {
   notify(next);
 }
 
+// 复用的下载启动流程：解析引擎 → 建目录 → 构造参数 → spawn → 监听 stdout/stderr/close。
+// enqueue 和 retry 共用同一份逻辑，避免两份下载流程分叉。
+function launchDownload(task: DownloadTask) {
+  const engine = resolveYtDlp();
+  if (!engine) {
+    updateTask(task.id, { state: "failed", detail: "未找到 yt-dlp。请安装下载引擎后重试：brew install yt-dlp ffmpeg" });
+    return;
+  }
+  const ffmpeg = resolveFfmpeg();
+  if (!ffmpeg) {
+    updateTask(task.id, { state: "failed", detail: "未找到 FFmpeg，无法合并音视频。请安装后重试：brew install ffmpeg" });
+    return;
+  }
+  try {
+    mkdirSync(task.folder, { recursive: true });
+  } catch {
+    updateTask(task.id, { state: "failed", detail: "无法创建保存文件夹，请通过“更改”选择一个可写位置。" });
+    return;
+  }
+  const args = [
+    "--newline",
+    "--no-playlist",
+    "--ffmpeg-location", path.dirname(ffmpeg),
+    "--merge-output-format", "mp4",
+    "--remux-video", "mp4",
+    "--no-keep-video",
+    "-P", task.folder,
+    "-f", task.quality === "best" ? "bv*+ba/b" : "bv*[height<=" + task.quality + "]+ba/b",
+  ];
+  const cookieFile = cookieFileForYtDlp(task.platform);
+  if (cookieFile) args.push("--cookies", cookieFile);
+  else if (task.browser && task.browser !== "none") {
+    args.push("--cookies-from-browser", task.browser);
+  }
+  args.push(task.url);
+  const child = spawn(engine, args, { shell: false });
+  processes.set(task.id, child);
+  let launchFailed = false;
+  updateTask(task.id, { state: "downloading", progress: 1, detail: "正在连接下载引擎…" });
+  child.stdout.on("data", (chunk: Buffer) => {
+    const text = String(chunk);
+    const match = text.match(/\[download\]\s+([\d.]+)%/);
+    updateTask(task.id, { state: "downloading", progress: match ? Number(match[1]) : tasks.get(task.id)?.progress, detail: text.trim() });
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    const detail = String(chunk).trim();
+    const safariAccessDenied = /com\.apple\.Safari\/Data\/Library\/Cookies|Cookies\.binarycookies|Operation not permitted/i.test(detail);
+    const browserAccessDenied = /failed to decrypt|permission denied|could not copy.*cookies/i.test(detail);
+    const authenticationRequired = /sign in to confirm|fresh cookies.*needed|login required|cookies? .*required/i.test(detail);
+    const taskHint = safariAccessDenied || browserAccessDenied
+      ? "无法读取所选浏览器的登录状态。请关闭浏览器后重试，或选择另一个浏览器。"
+      : authenticationRequired
+        ? "该公开链接需要登录状态。请在已登录该平台的 Chrome 或 Firefox 中打开后，在任务中选择对应浏览器重试。"
+        : detail;
+    updateTask(task.id, { state: "downloading", detail: taskHint });
+  });
+  child.on("error", () => {
+    launchFailed = true;
+    updateTask(task.id, { state: "failed", detail: "下载引擎无法启动。请重新安装 yt-dlp 后再试。" });
+  });
+  child.on("close", (code: number | null) => {
+    processes.delete(task.id);
+    if (launchFailed) return;
+    const previous = tasks.get(task.id);
+    if (previous?.state === "cancelled") return;
+    updateTask(task.id, { state: code === 0 ? "completed" : "failed", progress: code === 0 ? 100 : previous?.progress, detail: code === 0 ? "音视频已合并为单个 MP4 文件" : previous?.detail && previous.detail !== "正在连接下载引擎…" ? previous.detail : "下载失败，请检查链接、登录状态或平台限制。" });
+  });
+}
+
 function isDownloadRequest(value: unknown): value is DownloadRequest {
   if (!value || typeof value !== "object") return false;
   const request = value as Record<string, unknown>;
@@ -143,78 +212,23 @@ app.whenReady().then(() => {
     processes.delete(task.id);
     return { accepted: true };
   });
+  // 重试：仅接受 failed 状态的任务，复用同一 ID 和配置，不新增任务记录。
+  // 同一任务 ID 同一时刻只允许一个子进程（processes.has 守卫）。
+  ipcMain.handle("download:retry", (_event, id: unknown) => {
+    const task = typeof id === "string" ? tasks.get(id) : undefined;
+    if (!task || task.state !== "failed") return { accepted: false };
+    if (processes.has(task.id)) return { accepted: false };
+    updateTask(task.id, { state: "queued", progress: 0, detail: "正在重新连接下载引擎…" });
+    launchDownload(task);
+    return { accepted: true };
+  });
   ipcMain.handle("download:enqueue", (_event, rawRequest: unknown) => {
     if (!isDownloadRequest(rawRequest)) throw new Error("Invalid download request");
     const request = rawRequest;
     const task: DownloadTask = { ...request, state: "queued", progress: 0, detail: "等待进入传送带", createdAt: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) };
     tasks.set(task.id, task);
     notify(task);
-    const engine = resolveYtDlp();
-    if (!engine) {
-      updateTask(request.id, { state: "failed", detail: "未找到 yt-dlp。请安装下载引擎后重试：brew install yt-dlp ffmpeg" });
-      return { accepted: true };
-    }
-    const ffmpeg = resolveFfmpeg();
-    if (!ffmpeg) {
-      updateTask(request.id, { state: "failed", detail: "未找到 FFmpeg，无法合并音视频。请安装后重试：brew install ffmpeg" });
-      return { accepted: true };
-    }
-    try {
-      mkdirSync(request.folder, { recursive: true });
-    } catch {
-      updateTask(request.id, { state: "failed", detail: "无法创建保存文件夹，请通过“更改”选择一个可写位置。" });
-      return { accepted: true };
-    }
-    const args = [
-      "--newline",
-      "--no-playlist",
-      "--ffmpeg-location", path.dirname(ffmpeg),
-      "--merge-output-format", "mp4",
-      "--remux-video", "mp4",
-      "--no-keep-video",
-      "-P", request.folder,
-      "-f", request.quality === "best" ? "bv*+ba/b" : "bv*[height<=" + request.quality + "]+ba/b",
-    ];
-    const cookieFile = cookieFileForYtDlp(request.platform);
-    if (cookieFile) args.push("--cookies", cookieFile);
-    else if (request.browser && request.browser !== "none") {
-      // The browser is read only when the user explicitly selects it for this task.
-      // This covers public media that an extractor asks the user to sign in to view.
-      args.push("--cookies-from-browser", request.browser);
-    }
-    args.push(request.url);
-    const child = spawn(engine, args, { shell: false });
-    processes.set(request.id, child);
-    let launchFailed = false;
-    updateTask(request.id, { state: "downloading", progress: 1, detail: "正在连接下载引擎…" });
-    child.stdout.on("data", (chunk: Buffer) => {
-      const text = String(chunk);
-      const match = text.match(/\[download\]\s+([\d.]+)%/);
-      updateTask(request.id, { state: "downloading", progress: match ? Number(match[1]) : tasks.get(request.id)?.progress, detail: text.trim() });
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      const detail = String(chunk).trim();
-      const safariAccessDenied = /com\.apple\.Safari\/Data\/Library\/Cookies|Cookies\.binarycookies|Operation not permitted/i.test(detail);
-      const browserAccessDenied = /failed to decrypt|permission denied|could not copy.*cookies/i.test(detail);
-      const authenticationRequired = /sign in to confirm|fresh cookies.*needed|login required|cookies? .*required/i.test(detail);
-      const taskHint = safariAccessDenied || browserAccessDenied
-        ? "无法读取所选浏览器的登录状态。请关闭浏览器后重试，或选择另一个浏览器。"
-        : authenticationRequired
-          ? "该公开链接需要登录状态。请在已登录该平台的 Chrome 或 Firefox 中打开后，在任务中选择对应浏览器重试。"
-          : detail;
-      updateTask(request.id, { state: "downloading", detail: taskHint });
-    });
-    child.on("error", () => {
-      launchFailed = true;
-      updateTask(request.id, { state: "failed", detail: "下载引擎无法启动。请重新安装 yt-dlp 后再试。" });
-    });
-    child.on("close", (code: number | null) => {
-      processes.delete(request.id);
-      if (launchFailed) return;
-      const previous = tasks.get(request.id);
-      if (previous?.state === "cancelled") return;
-      updateTask(request.id, { state: code === 0 ? "completed" : "failed", progress: code === 0 ? 100 : previous?.progress, detail: code === 0 ? "音视频已合并为单个 MP4 文件" : previous?.detail && previous.detail !== "正在连接下载引擎…" ? previous.detail : "下载失败，请检查链接、登录状态或平台限制。" });
-    });
+    launchDownload(task);
     return { accepted: true };
   });
   createWindow();

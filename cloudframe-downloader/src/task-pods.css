@@ -148,6 +148,19 @@
 
 .pod-url { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--p-url); font: 9px 'DM Mono', monospace; }
 
+/* SSL 证书校验失败提示：琥珀色，不建议关闭校验 */
+.pod-ssl-hint {
+  margin: 2px 0 0;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--pod-signal) 35%, transparent);
+  border-radius: 2px;
+  background: var(--pod-signal-soft);
+  color: var(--pod-signal);
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: .2px;
+}
+
 /* 铣槽进度轨 */
 .pod-progress {
   height: 6px;

@@ -33,6 +33,7 @@ export type DownloadApi = {
   pause: (id: string) => Promise<{ accepted: boolean }>;
   resume: (id: string) => Promise<{ accepted: boolean }>;
   cancel: (id: string) => Promise<{ accepted: boolean }>;
+  retry: (id: string) => Promise<{ accepted: boolean }>;
   onTaskUpdate: (callback: (item: DownloadTask) => void) => () => void;
   onPlatformAuthUpdate: (callback: (status: { platform: Platform; signedIn: boolean }) => void) => () => void;
 };

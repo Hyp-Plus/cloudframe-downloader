@@ -21,6 +21,17 @@
   transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
 }
 .pod-actions button:active { transform: translateY(1px); }
+/* 重试按钮：琥珀色高亮，标识恢复操作；禁用时半透明不可点 */
+.pod-actions .pod-retry {
+  border-color: color-mix(in srgb, #ffb020 50%, var(--p-key-line));
+  color: #ffb020;
+  font-size: 13px;
+}
+.pod-actions .pod-retry:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
 @media (hover: hover) and (pointer: fine) {
+  .pod-actions .pod-retry:hover { border-color: #ffb020; background: color-mix(in srgb, #ffb020 12%, var(--p-key-bg)); }
   .pod-actions button:hover { border-color: #ffb020; color: #ffb020; }
 }

@@ -1,63 +1,91 @@
 /* ==========================================================================
-   FLOW LINE CF-01 · 工业输送线（下载任务区）
-   核心模型：舱体横坐标 = f(状态, 真实 progress)，货物始终从左向右运输；
-   CSS translate 过渡提供缓启动 → 匀速 → 缓刹车的机械节奏；
-   光电传感器在舱体经过工位分界时短促闪烁；暂停/故障 = 全线冻结。
-   双主题：默认深色 = 深石墨工业控制台；.theme-light = 暖灰机身 + 拉丝铝结构
-   （皮带与屏幕保持深色——真实设备如此，不是反色）。
-   唯一信号色：琥珀 #ffb020，语义不随主题改变。
+   FLOW LINE CF-01 · 工业输送线（v3 真实运输动画）
+   核心模型：rAF 临界阻尼弹簧驱动舱体坐标；皮带/滚筒速度由 --belt-* CSS 变量联动；
+   完成态出料序列由 JS 控制 transform（倾斜+下落+淡出）。
+   双主题：默认深色 = 石墨工业控制台；.theme-light = 铝灰/不锈钢机架。
+   唯一状态信号色：琥珀 #ffb020。急停按钮为物理控件（暗红），非状态信号。
    ========================================================================== */
 
 :root { --ease-out: cubic-bezier(.23, 1, .32, 1); --ease-mach: cubic-bezier(.45, .05, .2, 1); }
 
-/* 布局：输送线横贯工作台整行（覆盖 styles.css 中的旧三栏定位） */
 .workbench { grid-template-columns: minmax(0, 1.45fr) minmax(270px, .8fr); }
 .composer { grid-column: 1; grid-row: 1; order: 1; border-left: 0; border-right: 1px solid var(--line); }
 .destination { grid-column: 2; grid-row: 1; order: 2; }
 
-/* ── 机床配色令牌：深色工业控制台（默认 / .theme-dark）────────────── */
+/* ── 机床配色令牌：深色工业控制台（默认） ─────────────────────── */
 .conveyor {
-  --m-bg: #14171a;          /* 舱体背景 · 深石墨 */
-  --m-glow: #20262b;        /* 背景中心微光 */
-  --m-grain: rgba(255, 255, 255, .015); /* 拉丝纹理 */
-  --m-panel: #1b1f24;       /* 面板 / 铭牌底 */
-  --m-steel: #2e343b;       /* 钢结构件 */
-  --m-steel-hi: #454e57;    /* 结构高光 / 次轮廓 */
-  --m-steel-0: #3d454d;     /* 机架渐变顶 */
-  --m-steel-1: #262c32;     /* 机架渐变底 */
-  --m-belt-0: #333a42;      /* 皮带工作面顶（深色橡胶，双主题一致） */
-  --m-belt-1: #1e2328;      /* 皮带工作面底 */
-  --m-return: #16191d;      /* 回程带 */
+  --m-bg: #14171a;
+  --m-glow: #20262b;
+  --m-grain: rgba(255, 255, 255, .006);
+  --m-panel: #1b1f24;
+  --m-steel: #2e343b;
+  --m-steel-hi: #454e57;
+  --m-steel-0: #3d454d;
+  --m-steel-1: #262c32;
+  --m-belt-0: #333a42;
+  --m-belt-1: #1e2328;
+  --m-return: #16191d;
   --m-return-line: #3a4148;
-  --m-roller-0: #4c555e;    /* 滚筒径向渐变心 */
-  --m-roller-1: #262c32;    /* 滚筒径向渐变缘 */
-  --m-edge: #59636d;        /* 主轮廓 */
-  --m-edge-hi: #7d8790;     /* 滚筒描边 */
-  --m-line-hi: #8d969f;     /* 高光棱线 / 棱边 */
-  --m-spoke: #9aa3ab;       /* 轮辐 / 拖板纹 */
-  --m-tread-ret: #4a525a;   /* 回程带纹 */
-  --m-idler: #3a4148;       /* 托辊 */
-  --m-silver: #aeb6be;      /* 主标注文字 */
-  --m-head: #e8edf1;        /* 标题 */
-  --m-dim: #6e777f;         /* 弱标注 */
-  --m-deep: #0c0e10;        /* 屏幕 / 槽孔（深色，双主题一致） */
-  --m-flange: #6b7680;      /* 翼缘板 */
-  --m-foot: #59636d;        /* 地脚板 */
-  --m-brace: #4a525a;       /* 斜撑 */
-  --m-bolt: #8d969f;        /* 螺栓 */
-  --m-station-bg: #14171a;  /* 工位牌 */
+  --m-roller-0: #4c555e;
+  --m-roller-1: #262c32;
+  --m-gearbox-0: #3a4148;
+  --m-gearbox-1: #22282e;
+  --m-edge: #59636d;
+  --m-edge-hi: #7d8790;
+  --m-line-hi: #8d969f;
+  --m-spoke: #9aa3ab;
+  --m-tread-ret: #4a525a;
+  --m-idler: #3a4148;
+  --m-silver: #aeb6be;
+  --m-head: #e8edf1;
+  --m-dim: #6e777f;
+  --m-deep: #0c0e10;
+  --m-flange: #6b7680;
+  --m-foot: #59636d;
+  --m-foot-bolt: #8d969f;
+  --m-jam: #7d8790;
+  --m-brace: #4a525a;
+  --m-bolt: #8d969f;
+  --m-station-bg: #14171a;
   --m-station-line: #4a525a;
   --m-station-text: #8d969f;
-  --m-rail-rear: #4a525a;   /* 后导轨（压暗） */
-  --m-rail-post: #59636d;   /* 导轨立柱 */
-  --m-rail-near: #8d969f;   /* 前导轨（亮银） */
-  --m-rail-slot: #101214;   /* 导轨槽 */
-  --m-chassis: #2e353c;     /* 上线舱体 */
+  --m-rail-rear: #4a525a;
+  --m-rail-post: #59636d;
+  --m-rail-near: #8d969f;
+  --m-rail-slot: #101214;
+  --m-rail-clamp: #6b7680;
+  --m-chassis: #2e353c;
   --m-chassis-line: #6b7680;
-  --m-deck: #59636d;        /* 舱体顶沿 */
-  --m-skirt: #22282e;       /* 舱体接触裙板 */
-  --m-rubber: #17191c;      /* 防撞条（橡胶） */
-  --m-signal: #ffb020;      /* 唯一信号色：琥珀 */
+  --m-deck: #59636d;
+  --m-skirt: #22282e;
+  --m-rubber: #17191c;
+  --m-bearing: #6b7680;
+  --m-bearing-inner: #2a2f35;
+  --m-keyway: #1a1e22;
+  --m-coupling: #59636d;
+  --m-cable-tray: #3a4148;
+  --m-cable-drop: #59636d;
+  --m-perf: rgba(255,255,255,.06);
+  --m-estop-base: #3a2020;
+  --m-estop-cap: #6b2222;
+  --m-estop-ring: #8b3030;
+  --m-selector: #454e57;
+  --m-selector-knob: #8d969f;
+  --m-display-bg: #0a0c0e;
+  --m-display-text: #ffb020;
+  --m-display-idle: #3a3a2a;
+  --m-rfid: #4a525a;
+  --m-handle: #1a1e22;
+  --m-wheel: #3a4148;
+  --m-wheel-hub: #8d969f;
+  --m-axle: #6b7680;
+  --m-scraper: #7d8790;
+  --m-splice: rgba(255,255,255,.08);
+  --m-vgroove: rgba(0,0,0,.25);
+  --m-warn-bg: #2a2520;
+  --m-warn-border: #ffb020;
+  --m-warn-text: #ffb020;
+  --m-signal: #ffb020;
   --m-signal-soft: color-mix(in srgb, var(--m-signal) 22%, transparent);
 
   grid-column: 1 / -1;
@@ -77,22 +105,24 @@
   transition: background-color 240ms ease, color 240ms ease;
 }
 
-/* ── 浅色主题：暖灰机身 + 拉丝铝/不锈钢结构 ─────────────────────── */
+/* ── 浅色主题：铝灰 / 不锈钢机架，皮带与屏幕保持深色 ──────────── */
 .theme-light .conveyor {
   --m-bg: #e9e7e2;
   --m-glow: #f4f2ee;
-  --m-grain: rgba(0, 0, 0, .022);
+  --m-grain: rgba(0, 0, 0, .008);
   --m-panel: #f5f4f1;
   --m-steel: #c9cccf;
   --m-steel-hi: #b2b6ba;
   --m-steel-0: #d5d8db;
   --m-steel-1: #b0b4b8;
-  --m-belt-0: #41474e;      /* 皮带保持深色橡胶 */
+  --m-belt-0: #41474e;
   --m-belt-1: #262b30;
   --m-return: #22262b;
   --m-return-line: #454b52;
   --m-roller-0: #dcdee1;
   --m-roller-1: #989ea4;
+  --m-gearbox-0: #c4c7ca;
+  --m-gearbox-1: #9fa3a7;
   --m-edge: #6b7076;
   --m-edge-hi: #565c62;
   --m-line-hi: #6e747a;
@@ -105,6 +135,8 @@
   --m-deep: #2b2f33;
   --m-flange: #9aa0a6;
   --m-foot: #9aa0a6;
+  --m-foot-bolt: #6e747a;
+  --m-jam: #8f959b;
   --m-brace: #a9adb2;
   --m-bolt: #6e747a;
   --m-station-bg: #f5f4f1;
@@ -114,40 +146,56 @@
   --m-rail-post: #8f959b;
   --m-rail-near: #6e747a;
   --m-rail-slot: #c0c4c8;
+  --m-rail-clamp: #8f959b;
   --m-chassis: #d8dbde;
   --m-chassis-line: #5b6167;
   --m-deck: #b4b8bc;
   --m-skirt: #b0b4b8;
   --m-rubber: #43484e;
+  --m-bearing: #8f959b;
+  --m-bearing-inner: #c9cccf;
+  --m-keyway: #a0a5aa;
+  --m-coupling: #8f959b;
+  --m-cable-tray: #b9bcbf;
+  --m-cable-drop: #8f959b;
+  --m-perf: rgba(0,0,0,.08);
+  --m-estop-base: #8b5a5a;
+  --m-estop-cap: #a03030;
+  --m-estop-ring: #c04040;
+  --m-selector: #b2b6ba;
+  --m-selector-knob: #5b6167;
+  --m-display-bg: #1a1c1e;
+  --m-display-text: #ffb020;
+  --m-display-idle: #4a4a3a;
+  --m-rfid: #8f959b;
+  --m-handle: #b0b4b8;
+  --m-wheel: #8f959b;
+  --m-wheel-hub: #5b6167;
+  --m-axle: #6e747a;
+  --m-scraper: #565c62;
+  --m-splice: rgba(0,0,0,.1);
+  --m-vgroove: rgba(0,0,0,.15);
+  --m-warn-bg: #f0ebe0;
+  --m-warn-border: #d49520;
+  --m-warn-text: #b07010;
 }
 
-/* 顶部信息带：设备铭牌式排版 */
+/* ── 顶部信息带 ─────────────────────────────────────────────── */
 .conveyor-head { position: relative; z-index: 2; display: flex; align-items: baseline; gap: 14px; }
 .conveyor-head .core-label {
-  margin: 0;
-  padding: 3px 7px;
-  border: 1px solid var(--m-steel-hi);
-  border-radius: 2px;
-  background: var(--m-panel);
-  color: var(--m-dim);
-  font: 500 9px 'DM Mono', monospace;
-  letter-spacing: 1.5px;
+  margin: 0; padding: 3px 7px; border: 1px solid var(--m-steel-hi); border-radius: 2px;
+  background: var(--m-panel); color: var(--m-dim);
+  font: 500 9px 'DM Mono', monospace; letter-spacing: 1.5px;
 }
 .conveyor-head h3 { margin: 0; color: var(--m-head); font-size: 15px; font-weight: 600; letter-spacing: .5px; }
 .conveyor-head .core-copy { margin: 0; color: var(--m-dim); font: 10px 'DM Mono', 'Noto Sans SC', monospace; letter-spacing: 2px; }
 
-/* 工况读数（右上）：状态灯 + 机器码文案 */
-/* left/bottom:auto 显式抵消 styles.css 旧规则的 left:27px/bottom:110px，防止被拉伸成整幅面板 */
 .conveyor-caption {
   position: absolute; z-index: 2; right: 28px; top: 24px; left: auto; bottom: auto;
   display: flex; align-items: center; gap: 8px;
-  padding: 5px 9px;
-  border: 1px solid var(--m-steel-hi);
-  border-radius: 2px;
-  background: var(--m-panel);
-  color: var(--m-silver);
-  font: 10px 'DM Mono', 'Noto Sans SC', monospace;
-  letter-spacing: .8px;
+  padding: 5px 9px; border: 1px solid var(--m-steel-hi); border-radius: 2px;
+  background: var(--m-panel); color: var(--m-silver);
+  font: 10px 'DM Mono', 'Noto Sans SC', monospace; letter-spacing: .8px;
 }
 .conveyor-caption .signal { width: 8px; height: 8px; border-radius: 1px; background: var(--m-steel-hi); transition: background-color 240ms var(--ease-mach); }
 .conveyor-downloading .signal { background: var(--m-signal); animation: lamp-run 2.4s ease-in-out infinite; }
@@ -156,65 +204,52 @@
 .conveyor-complete .signal { background: var(--m-signal); }
 .conveyor-idle .conveyor-caption { color: var(--m-dim); }
 
-/* ── SVG 机床本体 ─────────────────────────────────────────────── */
+/* ── SVG 本体 ───────────────────────────────────────────────── */
 .conveyor-illustration { display: block; width: 100%; height: auto; margin-top: 10px; }
 .conveyor-illustration text { font-family: 'DM Mono', 'Noto Sans SC', monospace; }
 
-/* 渐变与警示纹理由令牌着色，随主题切换 */
+/* 渐变 stop 由令牌着色 */
 .conveyor-illustration .gs-a { stop-color: var(--m-steel-0); }
 .conveyor-illustration .gs-b { stop-color: var(--m-steel-1); }
 .conveyor-illustration .gb-a { stop-color: var(--m-belt-0); }
 .conveyor-illustration .gb-b { stop-color: var(--m-belt-1); }
 .conveyor-illustration .gr-a { stop-color: var(--m-roller-0); }
 .conveyor-illustration .gr-b { stop-color: var(--m-roller-1); }
+.conveyor-illustration .gg-a { stop-color: var(--m-gearbox-0); }
+.conveyor-illustration .gg-b { stop-color: var(--m-gearbox-1); }
 .conveyor-illustration .hz-a { fill: var(--m-deep); }
 .conveyor-illustration .hz-b { fill: var(--m-signal); opacity: .85; }
 .conveyor-illustration .ht-a { fill: var(--m-signal); }
 .conveyor-illustration .ht-b { fill: #14171a; opacity: .85; }
+.conveyor-illustration .pf-dot { fill: var(--m-perf); }
 .m-hazard { fill: url(#cf-hazard); }
+.m-floor { stroke: var(--m-steel-hi); stroke-width: 1; opacity: .35; }
 
-.m-floor { stroke: var(--m-steel-hi); stroke-width: 2; stroke-dasharray: 24 6 4 6; }
-
-/* 机架：金属竖向渐变 + 翼缘 + 焊缝 + 沉孔螺栓 + 维护刻度 */
+/* ── 机架 ───────────────────────────────────────────────────── */
 .m-girder { fill: url(#cf-steel); stroke: var(--m-edge); stroke-width: 1.5; }
 .m-flange { fill: var(--m-flange); }
 .m-leg { fill: url(#cf-steel); stroke: var(--m-edge); stroke-width: 1.5; }
 .m-foot { fill: var(--m-foot); }
-.m-brace { stroke: var(--m-brace); stroke-width: 4; opacity: .7; }
+.m-foot-bolt { fill: var(--m-foot-bolt); }
+.m-jam { fill: var(--m-jam); }
+.m-brace { stroke: var(--m-brace); stroke-width: 3; opacity: .45; }
 .m-ruler { stroke: var(--m-bolt); stroke-width: 1; opacity: .8; }
 .m-weld { stroke: var(--m-steel-hi); stroke-width: 2; stroke-dasharray: 3 3; }
+.m-seam { stroke: var(--m-edge); stroke-width: 1; opacity: .5; }
 .m-bolt circle:first-child { fill: var(--m-bolt); }
 .m-bolt circle:last-child { fill: var(--m-deep); }
+.m-bolt-flange circle:first-child { fill: var(--m-flange); }
 .m-asset rect { fill: var(--m-panel); stroke: var(--m-steel-hi); stroke-width: 1; }
-.m-asset text { fill: var(--m-dim); font-size: 8px; letter-spacing: 1.5px; }
+.m-asset-line { stroke: var(--m-steel-hi); stroke-width: .8; opacity: .6; }
+.m-asset-model { fill: var(--m-silver); font-size: 7.5px; letter-spacing: 1px; font-weight: 500; }
+.m-asset-sn { fill: var(--m-dim); font-size: 6px; letter-spacing: .8px; }
 
-/* 工位牌：当前工位点亮信号色（宽度 = 工位实际长度） */
-.m-station rect { fill: var(--m-station-bg); stroke: var(--m-station-line); stroke-width: 1; transition: fill 240ms var(--ease-mach), stroke 240ms var(--ease-mach); }
-.m-station text { fill: var(--m-station-text); font-size: 10px; letter-spacing: 1px; transition: fill 240ms var(--ease-mach); }
-.stage-0 .station-0 rect, .stage-1 .station-1 rect, .stage-2 .station-2 rect, .stage-3 .station-3 rect { fill: var(--m-signal-soft); stroke: var(--m-signal); }
-.stage-0 .station-0 text, .stage-1 .station-1 text, .stage-2 .station-2 text, .stage-3 .station-3 text { fill: var(--m-signal); }
+/* 警示标 */
+.m-warn-border { fill: none; stroke: var(--m-warn-border); stroke-width: 1; }
+.m-warn-bg { fill: var(--m-warn-bg); }
+.m-warn-text { fill: var(--m-warn-text); font-size: 7px; font-weight: 600; letter-spacing: 1.5px; }
 
-/* 上料控制台 */
-.m-housing { fill: var(--m-panel); stroke: var(--m-edge); stroke-width: 1.5; }
-.m-screen { fill: var(--m-deep); stroke: var(--m-steel-hi); stroke-width: 1; }
-.m-screen-line { stroke: var(--m-dim); stroke-width: 2; opacity: .7; }
-.m-led { fill: var(--m-steel-hi); }
-.m-key { fill: var(--m-steel); stroke: var(--m-edge); stroke-width: 1; }
-.m-key-signal { fill: var(--m-signal); opacity: .35; }
-.conveyor-downloading .m-key-signal, .conveyor-complete .m-key-signal { opacity: 1; }
-.conveyor-downloading .m-led-run { fill: var(--m-signal); animation: lamp-run 2.4s ease-in-out infinite; }
-.conveyor-complete .m-led-run { fill: var(--m-signal); }
-.conveyor-attention .m-led-run { fill: var(--m-signal); animation: lamp-alarm 1s steps(1) infinite; }
-.m-vents { stroke: var(--m-steel-hi); stroke-width: 1.5; }
-.m-mast { fill: var(--m-steel-hi); }
-.m-beacon-housing { fill: var(--m-steel); stroke: var(--m-edge); stroke-width: 1.5; }
-.m-beacon { fill: var(--m-steel-hi); transition: fill 240ms var(--ease-mach); }
-.conveyor-downloading .m-beacon { fill: var(--m-signal); animation: lamp-run 2.4s ease-in-out infinite; }
-.conveyor-queued .m-beacon { fill: var(--m-signal); animation: lamp-slow 1.8s steps(1) infinite; }
-.conveyor-attention .m-beacon { fill: var(--m-signal); animation: lamp-alarm 1s steps(1) infinite; }
-.conveyor-complete .m-beacon { fill: var(--m-signal); }
-
-/* 张力表（横梁面横向标尺）：指针随机况右移（停机松弛 → 运行张紧） */
+/* 张力表 */
 .m-plate { fill: var(--m-panel); stroke: var(--m-edge); stroke-width: 1; }
 .m-gauge-label { fill: var(--m-dim); font-size: 6px; letter-spacing: 1.5px; }
 .m-ticks { stroke: var(--m-dim); stroke-width: 1.5; }
@@ -225,100 +260,197 @@
 .conveyor-queued .m-tension-pointer { translate: 18px 0; }
 .conveyor-downloading .m-tension-pointer, .conveyor-complete .m-tension-pointer { translate: 40px 0; }
 
-/* 上料辊床（无动力区）与限位挡块 */
+/* 工位牌 */
+.m-station rect { fill: var(--m-station-bg); stroke: var(--m-station-line); stroke-width: 1; transition: fill 240ms var(--ease-mach), stroke 240ms var(--ease-mach); }
+.m-station text { fill: var(--m-station-text); font-size: 10px; letter-spacing: 1px; transition: fill 240ms var(--ease-mach); }
+.stage-0 .station-0 rect, .stage-1 .station-1 rect, .stage-2 .station-2 rect, .stage-3 .station-3 rect { fill: var(--m-signal-soft); stroke: var(--m-signal); }
+.stage-0 .station-0 text, .stage-1 .station-1 text, .stage-2 .station-2 text, .stage-3 .station-3 text { fill: var(--m-signal); }
+
+/* ── 上料控制台 ─────────────────────────────────────────────── */
+.m-housing { fill: var(--m-panel); stroke: var(--m-edge); stroke-width: 1.5; }
+.m-screen { fill: var(--m-deep); stroke: var(--m-steel-hi); stroke-width: 1; }
+.m-screen-line { stroke: var(--m-dim); stroke-width: 1.5; opacity: .6; }
+.m-led { fill: var(--m-steel-hi); }
+.m-key { fill: var(--m-steel); stroke: var(--m-edge); stroke-width: 1; }
+.m-key-signal { fill: var(--m-signal); opacity: .35; }
+.conveyor-downloading .m-key-signal, .conveyor-complete .m-key-signal { opacity: 1; }
+.conveyor-downloading .m-led-run { fill: var(--m-signal); animation: lamp-run 2.4s ease-in-out infinite; }
+.conveyor-complete .m-led-run { fill: var(--m-signal); }
+.conveyor-attention .m-led-run { fill: var(--m-signal); animation: lamp-alarm 1s steps(1) infinite; }
+.m-vents { stroke: var(--m-steel-hi); stroke-width: 1; opacity: .6; }
+.m-con-plate { fill: var(--m-steel-hi); opacity: .6; }
+/* 急停按钮 */
+.m-estop-base { fill: var(--m-estop-base); stroke: var(--m-edge); stroke-width: .8; }
+.m-estop-cap { fill: var(--m-estop-cap); }
+.m-estop-ring { stroke: var(--m-estop-ring); stroke-width: 1.2; }
+/* 选择开关 */
+.m-selector-body { fill: var(--m-selector); stroke: var(--m-edge); stroke-width: .8; }
+.m-selector-knob { fill: var(--m-selector-knob); }
+.m-selector-mark { stroke: var(--m-signal); stroke-width: 1; }
+/* 信标灯柱 */
+.m-mast { fill: var(--m-steel-hi); }
+.m-mast-clamp { fill: var(--m-rail-clamp); }
+.m-beacon-housing { fill: var(--m-steel); stroke: var(--m-edge); stroke-width: 1.5; }
+.m-beacon { fill: var(--m-steel-hi); transition: fill 240ms var(--ease-mach); }
+.m-beacon-lens { fill: none; stroke: var(--m-line-hi); stroke-width: .8; opacity: .5; }
+.conveyor-downloading .m-beacon { fill: var(--m-signal); animation: lamp-run 2.4s ease-in-out infinite; }
+.conveyor-queued .m-beacon { fill: var(--m-signal); animation: lamp-slow 1.8s steps(1) infinite; }
+.conveyor-attention .m-beacon { fill: var(--m-signal); animation: lamp-alarm 1s steps(1) infinite; }
+.conveyor-complete .m-beacon { fill: var(--m-signal); }
+
+/* 上料辊床 + 限位挡块 */
 .m-apron-bed { fill: var(--m-steel); stroke: var(--m-edge); stroke-width: 1; }
 .m-endstop rect:first-child { fill: var(--m-steel); stroke: var(--m-edge); stroke-width: 1; }
+.m-endstop-roller { fill: var(--m-steel-hi); stroke: var(--m-edge); stroke-width: .8; }
 
-/* 皮带与滚筒：工作面带高光棱线 + 拖板纹，滚筒径向渐变，三层明暗分离 */
-.m-belt-top { fill: url(#cf-belt); stroke: var(--m-chassis-line); stroke-width: 1; }
-.m-belt-edge { stroke: var(--m-line-hi); stroke-width: 1; opacity: .75; }
+/* ── 输送线体 ───────────────────────────────────────────────── */
 .m-belt-return { fill: var(--m-return); stroke: var(--m-return-line); stroke-width: 1; }
-.m-tread-top { stroke: var(--m-spoke); stroke-width: 3; stroke-dasharray: 14 18; opacity: .6; }
-.m-tread-return { stroke: var(--m-tread-ret); stroke-width: 2.5; stroke-dasharray: 14 18; opacity: .5; }
+.m-tread-return { stroke: var(--m-tread-ret); stroke-width: 2; stroke-dasharray: 24 32; opacity: .3;
+  animation: tread-return var(--belt-dur, 1.15s) linear infinite;
+  animation-play-state: var(--belt-state, paused);
+}
+
+/* 托辊（主线体） */
+.m-line .m-idler circle { fill: var(--m-idler); stroke: var(--m-edge); stroke-width: 1; }
+.m-idler-axle { fill: var(--m-bearing-inner); stroke: var(--m-edge); stroke-width: .6; }
+.m-line .m-idler {
+  transform-box: fill-box; transform-origin: center;
+  animation: roll var(--idler-dur, .76s) linear infinite;
+  animation-play-state: var(--belt-state, paused);
+}
+
+/* 滚筒 */
 .m-roller circle:first-child { fill: url(#cf-roller); stroke: var(--m-edge-hi); stroke-width: 2; }
-.m-roller path { stroke: var(--m-spoke); stroke-width: 2.5; }
+.m-roller path { stroke: var(--m-spoke); stroke-width: 1.5; opacity: .7; }
 .m-roller .m-hub { fill: var(--m-deep); stroke: var(--m-line-hi); stroke-width: 1.5; }
-.m-idler circle { fill: var(--m-idler); stroke: var(--m-edge); stroke-width: 1.5; }
-.m-idler path { stroke: var(--m-spoke); stroke-width: 1.5; }
+.m-keyway { fill: var(--m-keyway); }
+.m-bearing { fill: var(--m-bearing); stroke: var(--m-edge); stroke-width: .8; }
+.m-bearing-inner { fill: var(--m-bearing-inner); }
+.m-coupling { fill: var(--m-coupling); stroke: var(--m-edge); stroke-width: .8; }
+.m-coupling-bolt { stroke: var(--m-deep); stroke-width: 1.5; }
+.m-roller {
+  transform-box: fill-box; transform-origin: center;
+  animation: roll var(--roller-dur, 2.2s) linear infinite;
+  animation-play-state: var(--belt-state, paused);
+}
+
+/* 齿轮箱 */
+.m-gearbox-housing { fill: url(#cf-gearbox); stroke: var(--m-edge); stroke-width: 1.5; }
+.m-gearbox-fin { stroke: var(--m-steel-hi); stroke-width: 1.2; opacity: .7; }
+.m-sight-glass { fill: var(--m-deep); stroke: var(--m-edge); stroke-width: .8; }
+.m-sight-oil { fill: var(--m-signal); opacity: .6; }
+.m-gearbox-plate { fill: var(--m-steel-hi); opacity: .6; }
+
+/* 电机 */
 .m-motor rect { fill: var(--m-panel); stroke: var(--m-edge); stroke-width: 1.5; }
 .m-motor path { stroke: var(--m-dim); stroke-width: 2; }
+.m-motor-shaft { fill: var(--m-bearing); stroke: var(--m-edge); stroke-width: .8; }
 
-/* 光电传感器：舱体遮挡光束时 LED 短促闪烁 */
+/* 工作面皮带 */
+.m-belt-top { fill: url(#cf-belt); stroke: var(--m-edge); stroke-width: .8; }
+.m-belt-edge { stroke: var(--m-line-hi); stroke-width: .8; opacity: .4; }
+.m-vgroove { stroke: var(--m-vgroove); stroke-width: .8; }
+.m-belt-splice { stroke: var(--m-splice); stroke-width: 1; }
+.m-tread-top { stroke: var(--m-spoke); stroke-width: 2.5; stroke-dasharray: 24 32; opacity: .35;
+  animation: tread-run var(--belt-dur, 1.15s) linear infinite;
+  animation-play-state: var(--belt-state, paused);
+}
+/* 皮带清扫器 */
+.m-scraper-blade { fill: var(--m-scraper); stroke: var(--m-edge); stroke-width: .8; }
+.m-scraper-arm { fill: var(--m-steel-hi); stroke: var(--m-edge); stroke-width: .8; }
+
+/* 光电传感器 */
+.m-sensor-bracket { fill: var(--m-steel-hi); stroke: var(--m-edge); stroke-width: .8; }
 .m-sensor-post { fill: var(--m-rail-post); }
 .m-sensor-head { fill: var(--m-panel); stroke: var(--m-edge); stroke-width: 1; }
-.m-sensor-led { fill: var(--m-steel-hi); }
-.m-sensor.on .m-sensor-led { fill: var(--m-signal); animation: sensor-flash 480ms var(--ease-mach) 1; }
-.m-sensor-beam { stroke: var(--m-signal); stroke-width: 1; stroke-dasharray: 2 4; opacity: 0; transition: opacity 200ms ease; }
-.m-sensor.on .m-sensor-beam { opacity: .5; }
+.m-sensor-led { fill: var(--m-steel-hi); transition: fill 120ms ease; }
+.m-sensor.on .m-sensor-led { fill: var(--m-signal); }
+.m-sensor-beam { stroke: var(--m-signal); stroke-width: 1; stroke-dasharray: 2 4; opacity: 0; transition: opacity 150ms ease; }
+.m-sensor.on .m-sensor-beam { opacity: .55; animation: sensor-pulse 500ms ease-out 1; }
+.m-sensor-gland { fill: var(--m-steel-hi); stroke: var(--m-edge); stroke-width: .6; }
 
-/* 导轨：槽型截面，前轨亮、后轨压暗 */
+/* 电缆桥架 */
+.m-cable-tray { fill: var(--m-cable-tray); opacity: .5; }
+
+/* 导轨 */
 .m-rail-rear rect { fill: var(--m-rail-rear); }
 .m-rail-near rect { fill: var(--m-rail-post); }
 .m-rail-near rect:first-child { fill: var(--m-rail-near); }
 .m-rail-slot { fill: var(--m-rail-slot) !important; }
+.m-rail-clamp { fill: var(--m-rail-clamp); }
 
-/* 出料端 */
-.m-chute { fill: var(--m-steel); stroke: var(--m-edge); stroke-width: 1; }
-.m-bin { fill: var(--m-panel); stroke: var(--m-edge); stroke-width: 1.5; }
-.m-bin-slots { stroke: var(--m-steel-hi); stroke-width: 3; }
-.m-bin-lamp { fill: var(--m-steel-hi); transition: fill 240ms var(--ease-mach); }
-.m-bin-label { fill: var(--m-dim); font-size: 9px; letter-spacing: 2px; }
-.conveyor-complete .m-bin-lamp { fill: var(--m-signal); }
-.conveyor-complete .m-bin { animation: bin-seat 600ms var(--ease-mach) 1; }
-
-/* ── 任务舱（货运载具）：底盘 / 接触裙板 / 卡扣 / 防撞条 / 沉孔螺栓 /
-      平台铭牌 / 编号 / 进度显示窗 / 状态灯 ─────────────────────────── */
-.pod-pos { transition: translate 680ms var(--ease-mach); will-change: translate; }
-.pod-g { animation: pod-in 480ms var(--ease-mach) both; }
-.pod-completed { animation: pod-dispose 900ms ease 700ms both; } /* 驶入收纳箱后淡出 */
-.pod-shadow { fill: #000; opacity: .3; }
+/* ── 任务舱（货运载具）v3：轮组 / 底盘 / 数显窗 / 顶标灯 / RFID ── */
+.pod-g { will-change: transform, opacity; }
+.pod-shadow { fill: #000; opacity: .28; }
+/* 轮组 */
+.pod-axle { stroke: var(--m-axle); stroke-width: 1.5; }
+.pod-wheel { fill: var(--m-wheel); stroke: var(--m-edge); stroke-width: .8; }
+.pod-wheel-hub { fill: var(--m-wheel-hub); }
 .pod-skirt { fill: var(--m-skirt); }
 .pod-chassis { fill: var(--m-chassis); stroke: var(--m-chassis-line); stroke-width: 1.5; }
 .pod-deck { fill: var(--m-deck); }
+.pod-handle { fill: var(--m-handle); }
 .pod-clasp { fill: var(--m-edge); }
 .pod-bumper { fill: var(--m-rubber); }
 .pod-bolt circle:first-child { fill: var(--m-dim); }
 .pod-bolt circle:last-child { fill: var(--m-deep); }
 .pod-plate { fill: var(--m-panel); stroke: var(--m-steel-hi); stroke-width: 1; }
 .pod-code { fill: var(--m-silver); font-size: 11px; font-weight: 500; }
-.pod-idx { fill: var(--m-dim); font-size: 7.5px; letter-spacing: 1px; }
-.pod-pct { fill: var(--m-signal); font-size: 8px; }
+.pod-idx { fill: var(--m-dim); font-size: 7px; letter-spacing: 1px; }
+/* 数显窗 */
+.pod-display { fill: var(--m-display-bg); stroke: var(--m-steel-hi); stroke-width: .8; }
+.pod-display-text { fill: var(--m-display-text); font: 700 9px 'DM Mono', monospace; letter-spacing: .5px; }
+.pod-display-idle { fill: var(--m-display-idle); }
+/* 进度槽 */
 .pod-slot { fill: var(--m-deep); stroke: var(--m-steel-hi); stroke-width: 1; }
 .pod-fill { fill: var(--m-signal); transition: width 360ms var(--ease-mach); }
+/* 顶标灯 */
+.pod-beacon-post { fill: var(--m-steel-hi); }
 .pod-lamp { fill: var(--m-steel-hi); }
+.pod-lamp-lens { fill: none; stroke: var(--m-line-hi); stroke-width: .6; opacity: .5; }
+/* RFID */
+.pod-rfid { fill: var(--m-rfid); stroke: var(--m-edge); stroke-width: .5; }
 .pod-tape { fill: url(#cf-hatch); }
+.pod-more { fill: var(--m-signal); font-size: 11px; letter-spacing: 1px; }
+
+/* 工况节拍（顶标灯 + 舱体轮廓） */
 .pod-downloading .pod-lamp { fill: var(--m-signal); animation: lamp-run 2.4s ease-in-out infinite; }
 .pod-queued .pod-lamp { fill: var(--m-signal); animation: lamp-slow 1.8s steps(1) infinite; }
 .pod-queued .pod-chassis { stroke-dasharray: 5 4; }
-.pod-paused .pod-lamp { fill: var(--m-signal); opacity: .55; } /* HOLD：常亮减半，全线冻结 */
+.pod-paused .pod-lamp { fill: var(--m-signal); opacity: .55; }
+.pod-paused { opacity: .88; }
 .pod-failed .pod-lamp { fill: var(--m-signal); animation: lamp-alarm 1s steps(1) infinite; }
-.pod-more { fill: var(--m-signal); font-size: 11px; letter-spacing: 1px; }
+.pod-completed .pod-lamp { fill: var(--m-signal); opacity: .8; }
 
-/* ── 运转动效：舱体前进时皮带连续走带、滚筒按半径比联动；
-      暂停 / 故障 / 空闲时全线静止（机械联动，不是装饰循环）── */
-.conveyor-downloading .m-tread-top { animation: tread-run 1.15s linear infinite; }
-.conveyor-downloading .m-tread-return { animation: tread-return 1.15s linear infinite; }
-.conveyor-downloading .m-roller { transform-box: fill-box; transform-origin: center; animation: roll 2.2s linear infinite; }
-.conveyor-downloading .m-idler { transform-box: fill-box; transform-origin: center; animation: roll .76s linear infinite; }
+/* ── 出料端 ─────────────────────────────────────────────────── */
+.m-chute { fill: var(--m-steel); stroke: var(--m-edge); stroke-width: 1; }
+.m-chute-wear { stroke: var(--m-line-hi); stroke-width: 1.5; opacity: .4; }
+.m-bin { fill: var(--m-panel); stroke: var(--m-edge); stroke-width: 1.5; transition: stroke 200ms ease; }
+.m-bin-slots { stroke: var(--m-steel-hi); stroke-width: 2; opacity: .5; }
+.m-bin-stack-post { fill: var(--m-steel-hi); }
+.m-bin-lamp { fill: var(--m-steel-hi); transition: fill 240ms var(--ease-mach); }
+.m-bin-label { fill: var(--m-dim); font-size: 9px; letter-spacing: 2px; }
+.m-bin-plate { fill: var(--m-steel-hi); opacity: .6; }
+.conveyor-complete .m-bin-lamp { fill: var(--m-signal); }
+.m-output.flash .m-bin { stroke: var(--m-signal); stroke-width: 2.5; animation: bin-seat 700ms var(--ease-mach) 1; }
+.m-output.flash .m-bin-lamp { fill: var(--m-signal); }
 
-/* ── 信号节拍（同一种琥珀色，用节奏区分工况，双主题语义一致）── */
+/* ── 动效关键帧 ─────────────────────────────────────────────── */
 @keyframes lamp-run { 50% { opacity: .55; } }
 @keyframes lamp-slow { 0%, 55% { opacity: 1; } 60%, 100% { opacity: .2; } }
 @keyframes lamp-alarm { 0%, 12% { opacity: 1; } 14%, 26% { opacity: .15; } 28%, 40% { opacity: 1; } 42%, 100% { opacity: .15; } }
-@keyframes sensor-flash { 0% { opacity: 0; } 30% { opacity: 1; } 60% { opacity: .3; } 100% { opacity: 1; } }
+@keyframes sensor-pulse { 0% { opacity: 0; } 30% { opacity: .8; } 100% { opacity: .4; } }
 @keyframes tread-run { to { stroke-dashoffset: -32; } }
 @keyframes tread-return { to { stroke-dashoffset: 32; } }
 @keyframes roll { to { rotate: 360deg; } }
-@keyframes pod-in { from { opacity: 0; translate: -26px 0; } to { opacity: 1; translate: 0 0; } }
-@keyframes pod-dispose { to { opacity: 0; } }
-@keyframes bin-seat { 0% { stroke: var(--m-signal); stroke-width: 3; } 100% { stroke: var(--m-edge); stroke-width: 1.5; } }
+@keyframes bin-seat { 0% { stroke-width: 3; } 100% { stroke-width: 1.5; } }
 
-/* ── 以下保留自上一版：登录行样式（与传送带无关，原样保留）── */
+/* ── 登录行（保留） ──────────────────────────────────────────── */
 .browser-option { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: 6px 10px; margin-top: 10px; color: var(--muted); font-size: 10px; }
 .browser-option button { border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface-quiet); color: var(--ink); padding: 8px; text-align: left; font-size: 10px; }
 .browser-option small { grid-column: 1 / -1; color: var(--faint); line-height: 1.45; }
 
-/* ── 窄屏：工作台收为单列，输送线移到表单下方并保持完整可见 ── */
+/* ── 窄屏 ───────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .workbench { grid-template-columns: 1fr; }
   .composer, .destination { grid-column: 1; }
@@ -328,11 +460,11 @@
   .conveyor-caption { position: static; margin-top: 10px; display: inline-flex; }
 }
 
-/* ── 减少动态效果：全线停车，舱体静止在正确工位，保留全部状态信息 ── */
+/* ── 减少动态效果：全线停车，舱体静止在正确工位 ──────────────── */
 @media (prefers-reduced-motion: reduce) {
   .conveyor-illustration *, .conveyor-caption .signal { animation: none !important; }
-  .conveyor-downloading .m-tread-top { stroke-dashoffset: -16; }
-  .pod-pos { transition: none; }
-  .pod-completed { opacity: 0; }
+  .m-tread-top, .m-tread-return, .m-line .m-idler, .m-roller { animation-play-state: paused !important; }
+  .pod-g { transition: none; }
   .m-tension-pointer { transition: none; }
+  .m-sensor.on .m-sensor-beam { opacity: .4; }
 }
