@@ -106,6 +106,12 @@ cloudframe-downloader/
 - 不处理私密、付费、DRM 或需要绕过访问控制的内容。
 - 仅保存你拥有下载权或已获得授权的内容；使用者须遵守平台规则、版权要求与当地法律。
 
+## 许可证
+
+本项目以 [GNU General Public License v3.0 或更高版本](LICENSE)（GPL-3.0-or-later）开源。
+
+任何人均可使用、研究、修改与分发本项目；若分发修改后的版本或基于本项目的衍生作品，须同时提供对应源码，并继续以 GPL-3.0-or-later 授权。
+
 ## 贡献
 
 欢迎提交 Issue 与 Pull Request。提交前请运行：
